@@ -16,11 +16,13 @@ Had to do this to make it compatible with HPC. Slurm job is in [scripts](/script
 * Encoder: `ResNet152`
 * Train Data Per Epoch: 10000
 * Valid Data Per Epoch: 500
+* Batch Size: 32
+* Image HW: 512, 512
 * Optimizer: Adam with Lr=0.0001
 * Loss function: DiceLoss
 * Training Curve
 ![](assets/2024-09-24/loss_iou.png)
-* Predictions at [assets/2024-09-24/]
+* Predictions at [assets/2024-09-24/](assets/2024-09-24/)
 ![](assets/2024-09-24/epoch_250.png)
 
 

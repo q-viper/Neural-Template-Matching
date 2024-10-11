@@ -4,8 +4,6 @@ from temp_matching.vis import subplot_images, figure_to_array
 from temp_matching.evaluator import Evaluator
 from pathlib import Path
 from typing import Tuple
-import numpy as np
-from tqdm import tqdm
 
 # had to import this to load the model
 from temp_matching.model import CustomUnet, EncodingCombination

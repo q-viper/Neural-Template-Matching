@@ -22,7 +22,7 @@ if __name__ == "__main__":
     OLD_OPTIMIZER_PATH = os.environ.get("OLD_OPTIMIZER_PATH")
     READ_ALL_DATA = False
 
-    BATCH_SIZE = 1
+    BATCH_SIZE = 16
     INPUT_SIZE = (512, 512)
     MAX_TRAIN_DATA = 100
     MAX_VALID_DATA = 50
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     EPOCHS = 300
     LOG_IMAGES_EVERY = 10
     OUT_DIR = "./train_res"
-    ENCODER_NAME = "resnet152"
+    ENCODER_NAME = "resnet34"
     UNET_ARGS = {
         "encoder_name": ENCODER_NAME,
         "classes": 1,  # Number of output classes
