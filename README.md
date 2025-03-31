@@ -2,7 +2,7 @@
 An experiment to do template matching based on neural networks.
 
 <div align="center">
-    <img src="desk_out.gif" alt="Desk Output">
+    <img src="assets/desk_out.gif" alt="Desk Output">
 </div>
 
 ## Training Procedure
