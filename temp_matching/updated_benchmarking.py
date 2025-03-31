@@ -31,13 +31,16 @@ def rle_encode(mask):
     Encodes a binary mask using Run-Length Encoding (RLE).
 
     Parameters:
-        mask (np.ndarray): Binary mask (2D array) where 1 represents the mask and 0 represents the background.
+        mask (np.ndarray): Binary mask (2D array) where 255 represents the mask and 0 represents the background.
 
     Returns:
         str: RLE-encoded string.
     """
     # Flatten the mask into a 1D array
     pixels = mask.flatten()
+
+    # Ensure the mask is binary (0 or 255)
+    pixels = (pixels > 0).astype(np.uint8)
 
     # Add a padding value at the end to detect runs that end at the last pixel
     pixels = np.concatenate([[0], pixels, [0]])
@@ -52,29 +55,32 @@ def rle_encode(mask):
     return " ".join(map(str, runs))
 
 
-def rle_decode(rle, shape):
+def rle_decode(rle_with_shape):
     """
-    Decodes a Run-Length Encoding (RLE) string into a binary mask.
+    Decodes a Run-Length Encoding (RLE) string with shape into a binary mask.
 
     Parameters:
-        rle (str): RLE-encoded string.
-        shape (tuple): Shape of the original mask (height, width).
+        rle_with_shape (str): RLE-encoded string with shape in the format "H,W:RLE".
 
     Returns:
-        np.ndarray: Decoded binary mask.
+        np.ndarray: Decoded binary mask where 255 represents the mask and 0 represents the background.
     """
+    # Split the shape and RLE string
+    shape_part, rle = rle_with_shape.split(":")
+    height, width = map(int, shape_part.split(","))  # Extract height and width
+
     # Split the RLE string into a list of integers
     runs = list(map(int, rle.split()))
 
     # Create an empty array for the mask
-    mask = np.zeros(shape[0] * shape[1], dtype=np.uint8)
+    mask = np.zeros(height * width, dtype=np.uint8)
 
     # Iterate over the runs and set the mask values
     for start, length in zip(runs[::2], runs[1::2]):
-        mask[start : start + length] = 1
+        mask[start : start + length] = 255  # Set mask values to 255
 
     # Reshape the mask to the original shape
-    return mask.reshape(shape)
+    return mask.reshape((height, width))
 
 
 def normalization(x):
@@ -360,15 +366,19 @@ def process_batch(
     for i, out in enumerate(model_pred.out):
         out = evaluator.post_process(out)
         resized_mask = cv2.resize(masks[i], out.shape[:2])
-        bmask = resized_mask > 0
-        bout = out > 0
-        iou = calculate_iou(bout, bmask)
+        bmask = (resized_mask > 0).astype(np.uint8) * 255  # Convert to 0 or 255
+        bout = (out > 0).astype(np.uint8) * 255  # Convert to 0 or 255
+        iou = calculate_iou(bout > 0, bmask > 0)
 
-        # Save model output as RLE
+        # Save model output as RLE with shape
         rle_encoded_mask = rle_encode(bout)
+        mask_shape = bout.shape  # Get the shape of the mask
+        rle_with_shape = (
+            f"{mask_shape[0]},{mask_shape[1]}:{rle_encoded_mask}"  # Format: H,W:RLE
+        )
         fname = results_dir / f"{Path(image_names[i]).stem}_{ann_ids[i]}_model_rle.txt"
         with open(fname, "w") as f:
-            f.write(rle_encoded_mask)
+            f.write(rle_with_shape)
 
         # SIFT matching
         t0 = time.perf_counter()
@@ -379,17 +389,19 @@ def process_batch(
             sift_out = np.zeros_like(out)
         t1 = time.perf_counter()
 
-        sift_out = cv2.resize(sift_out, out.shape) > 0
-        sift_iou = calculate_iou(sift_out, bmask)
+        sift_out = cv2.resize(sift_out, out.shape)
+        sift_out = (sift_out > 0).astype(np.uint8) * 255  # Convert to 0 or 255
+        sift_iou = calculate_iou(sift_out > 0, bmask > 0)
         sift_time = t1 - t0
 
-        # Save SIFT output as RLE
+        # Save SIFT output as RLE with shape
         sift_rle_encoded_mask = rle_encode(sift_out)
+        sift_rle_with_shape = f"{sift_out.shape[0]},{sift_out.shape[1]}:{sift_rle_encoded_mask}"  # Format: H,W:RLE
         sift_fname = (
             results_dir / f"{Path(image_names[i]).stem}_{ann_ids[i]}_sift_rle.txt"
         )
         with open(sift_fname, "w") as f:
-            f.write(sift_rle_encoded_mask)
+            f.write(sift_rle_with_shape)
 
         # Ensure image_name is a valid string
         img_name = str(image_names[i]).strip()  # Convert to string and strip whitespace
@@ -416,13 +428,12 @@ def main():
     results_dir.mkdir(parents=True, exist_ok=True)
     out_csv = results_dir / "results.csv"
 
-    # Write CSV header only once
+    # Write CSV header
     with open(out_csv, "w") as f:
         f.write(
             "image_name,label,bbox,model_iou,ann_id,model_time,model_gpu_memory,"
             "model_memory,sift_iou,sift_time\n"
         )
-
     pbar = tqdm(total=len(val_loader))
     for samples in val_loader:
         pbar.update(1)

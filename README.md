@@ -1,6 +1,10 @@
 # Template Matching Using Deep Learning
 An experiment to do template matching based on neural networks.
 
+<div align="center">
+    <img src="desk_out.gif" alt="Desk Output">
+</div>
+
 ## Training Procedure
 * Prepare a `.venv` file that contains following:
 
@@ -31,6 +35,9 @@ Had to do this to make it compatible with HPC. Slurm job is in [scripts](/script
 ### Demo
 * [Result 1](https://youtu.be/-ZUA1SLfXNU)
 * [Result 2](https://youtu.be/0ydsS0NyAQA)
+
+## Benchmarking with SIFT
+Note that storing the mask was done to view masks later. I found RLE (Run Length Encoding to be the perfect for that task.)
 
 
 
