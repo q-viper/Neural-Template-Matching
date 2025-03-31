@@ -1,5 +1,6 @@
 assets/training_data
 train_res/
+assets/model_results
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

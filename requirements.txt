@@ -10,7 +10,7 @@ scikit-image==0.24.0
 scikit-learn==1.5.2
 scipy==1.14.1
 segmentation-models-pytorch==0.3.4
-torch==2.2.2+cu121
-torchaudio==2.2.2+cu121
-torchvision==0.17.2+cu121
+torch==2.2.2
+torchaudio==2.2.2
+torchvision==0.17.2
 tqdm==4.66.5

@@ -3,12 +3,14 @@ An experiment to do template matching based on neural networks.
 
 ## Training Procedure
 * Prepare a `.venv` file that contains following:
+
 ```env
 TRAIN_DIR=assets\training_data\train2017\train2017
 TRAIN_ANNOTATION_DIR=assets\training_data\annotations_trainval2017\annotations\instances_train2017.json
 VAL_DIR=assets\training_data\val2017\val2017
 VAL_ANNOTATION_DIR=assets\training_data\annotations_trainval2017\annotations\instances_val2017.json
 ```
+
 Had to do this to make it compatible with HPC. Slurm job is in [scripts](/scripts).
 
 ## Results
@@ -24,9 +26,15 @@ Had to do this to make it compatible with HPC. Slurm job is in [scripts](/script
 ![](assets/2024-09-24/loss_iou.png)
 * Predictions at [assets/2024-09-24/](assets/2024-09-24/)
 ![](assets/2024-09-24/epoch_250.png)
+* The weight file can be downloaded from [Google Drive](https://drive.google.com/file/d/1G4hjwUqZ6OveJnp8xqICp5ITKJLSg4Al/view?usp=sharing)
+
+### Demo
+* [Result 1](https://youtu.be/-ZUA1SLfXNU)
+* [Result 2](https://youtu.be/0ydsS0NyAQA)
+
 
 
 ## Inference
-A [live_run.py](/live_run.py) should work out of the box. First compute the encodings of query and search based on that.
+A [live_run.py](/live_run.py) should work out of the box. First compute the encodings of query and search based on that. Please download the weight file before trying it out.
 
 ## References

@@ -116,7 +116,6 @@ class CustomCocoDataset(Dataset):
 
         # Assuming COCO-style annotation structure
         for ann in annotations["annotations"]:
-
             bbox = ann["bbox"]  # Get the bounding box coordinates [x, y, width, height]
             x, y, w, h = map(int, bbox)
 
