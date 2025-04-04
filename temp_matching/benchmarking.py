@@ -4,9 +4,12 @@ import torch
 from pathlib import Path
 from typing import Tuple, Optional
 import sys
+from tqdm import tqdm
 
 sys.path.append(r"D:\MSc Works\temp_matching")
+
 # else cant load model
+from temp_matching.val_data_loader import CustomCocoDataset, DataConfig
 from temp_matching.model import CustomUnet, EncodingCombination
 from pydantic import BaseModel
 import time
@@ -21,6 +24,63 @@ class ModelPrediction(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+def rle_encode(mask):
+    """
+    Encodes a binary mask using Run-Length Encoding (RLE).
+
+    Parameters:
+        mask (np.ndarray): Binary mask (2D array) where 255 represents the mask and 0 represents the background.
+
+    Returns:
+        str: RLE-encoded string.
+    """
+    # Flatten the mask into a 1D array
+    pixels = mask.flatten()
+
+    # Ensure the mask is binary (0 or 255)
+    pixels = (pixels > 0).astype(np.uint8)
+
+    # Add a padding value at the end to detect runs that end at the last pixel
+    pixels = np.concatenate([[0], pixels, [0]])
+
+    # Find where pixel values change (start and end of runs)
+    runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
+
+    # Calculate run lengths
+    runs[1::2] -= runs[::2]
+
+    # Convert to a space-separated string
+    return " ".join(map(str, runs))
+
+
+def rle_decode(rle_with_shape):
+    """
+    Decodes a Run-Length Encoding (RLE) string with shape into a binary mask.
+
+    Parameters:
+        rle_with_shape (str): RLE-encoded string with shape in the format "H,W:RLE".
+
+    Returns:
+        np.ndarray: Decoded binary mask where 255 represents the mask and 0 represents the background.
+    """
+    # Split the shape and RLE string
+    shape_part, rle = rle_with_shape.split(":")
+    height, width = map(int, shape_part.split(","))  # Extract height and width
+
+    # Split the RLE string into a list of integers
+    runs = list(map(int, rle.split()))
+
+    # Create an empty array for the mask
+    mask = np.zeros(height * width, dtype=np.uint8)
+
+    # Iterate over the runs and set the mask values
+    for start, length in zip(runs[::2], runs[1::2]):
+        mask[start : start + length] = 255  # Set mask values to 255
+
+    # Reshape the mask to the original shape
+    return mask.reshape((height, width))
 
 
 def normalization(x):
@@ -280,45 +340,100 @@ class Evaluator:
         return overlayed
 
 
-if __name__ == "__main__":
-    from temp_matching.val_data_loader import CustomCocoDataset, DataConfig
+def calculate_iou(mask1, mask2):
+    """Calculate Intersection over Union (IoU) between two binary masks."""
+    intersection = np.logical_and(mask1, mask2).sum()
+    union = np.logical_or(mask1, mask2).sum()
+    return round(intersection / union, 3) if union > 0 else 0
 
-    from tqdm import tqdm
 
-    val_loader = CustomCocoDataset(DataConfig(max_data=-100))
+def process_batch(
+    evaluator,
+    images,
+    queries,
+    masks,
+    cropped_regions,
+    image_names,
+    lbls,
+    bboxes,
+    ann_ids,
+    results_dir,
+):
+    """Process a batch of images and queries."""
+    csv_rows = []
+    model_pred = evaluator.batch_predict(images, queries)
 
-    evaluator = Evaluator()
-    frame = val_loader[1][0][0]
-    query = val_loader[1][0][1]
-    mask = val_loader[1][0][2]
-    evaluator.set_query(query, frame)
-    evaluator.set_frame(frame)
+    for i, out in enumerate(model_pred.out):
+        out = evaluator.post_process(out)
+        resized_mask = cv2.resize(masks[i], out.shape[:2])
+        bmask = (resized_mask > 0).astype(np.uint8) * 255  # Convert to 0 or 255
+        bout = (out > 0).astype(np.uint8) * 255  # Convert to 0 or 255
+        iou = calculate_iou(bout > 0, bmask > 0)
 
-    out = evaluator.fast_predict(frame, query)
-    out = evaluator.post_process(out)
-    out2 = evaluator.post_process(evaluator.predict(frame))
+        # Save model output as RLE with shape
+        rle_encoded_mask = rle_encode(bout)
+        mask_shape = bout.shape  # Get the shape of the mask
+        rle_with_shape = (
+            f"{mask_shape[0]},{mask_shape[1]}:{rle_encoded_mask}"  # Format: H,W:RLE
+        )
+        fname = results_dir / f"{Path(image_names[i]).stem}_{ann_ids[i]}_model_rle.txt"
+        with open(fname, "w") as f:
+            f.write(rle_with_shape)
 
-    assert np.array_equal(out, out2)
+        # SIFT matching
+        t0 = time.perf_counter()
+        try:
+            sift_out = get_sift_match_mask(images[i], cropped_regions[i])
+        except Exception as e:
+            print(f"Error in SIFT matching for {image_names[i]}: {e}")
+            sift_out = np.zeros_like(out)
+        t1 = time.perf_counter()
 
-    batch_size = 32
-    images = []
-    image_names = []
-    cropped_regions = []
-    queries = []
-    masks = []
-    lbls = []
-    bboxes = []
-    ann_ids = []
-    results_dir = Path(r"D:\MSc Works\temp_matching\assets\model_results")
-    out_csv = results_dir / "results.csv"
-    if not results_dir.exists():
-        results_dir.mkdir(parents=True, exist_ok=True)
-    with open(out_csv, "w") as f:
-        # 'image_name', 'label', 'bbox', 'iou', 'ann_id', 'model_time', 'model_gpu_memory', 'model_memory', 'sift_iou', 'sift_time'
-        f.write(
-            "image_name,label,bbox,model_iou,ann_id,model_time,model_gpu_memory,model_memory,sift_iou,sift_time\n"
+        sift_out = cv2.resize(sift_out, out.shape)
+        sift_out = (sift_out > 0).astype(np.uint8) * 255  # Convert to 0 or 255
+        sift_iou = calculate_iou(sift_out > 0, bmask > 0)
+        sift_time = t1 - t0
+
+        # Save SIFT output as RLE with shape
+        sift_rle_encoded_mask = rle_encode(sift_out)
+        sift_rle_with_shape = f"{sift_out.shape[0]},{sift_out.shape[1]}:{sift_rle_encoded_mask}"  # Format: H,W:RLE
+        sift_fname = (
+            results_dir / f"{Path(image_names[i]).stem}_{ann_ids[i]}_sift_rle.txt"
+        )
+        with open(sift_fname, "w") as f:
+            f.write(sift_rle_with_shape)
+
+        # Ensure image_name is a valid string
+        img_name = str(image_names[i]).strip()  # Convert to string and strip whitespace
+
+        # Collect CSV row
+        csv_rows.append(
+            f"{img_name},{lbls[i]},{bboxes[i]},{iou},{ann_ids[i]},"
+            f"{model_pred.time / len(masks)},{model_pred.gpu_memory / len(masks)},"
+            f"{model_pred.memory / len(masks)},{sift_iou},{sift_time}\n"
         )
 
+    return csv_rows
+
+
+def main():
+    val_loader = CustomCocoDataset(DataConfig(max_data=-100))
+    evaluator = Evaluator()
+
+    batch_size = 32
+    images, queries, masks, cropped_regions = [], [], [], []
+    image_names, lbls, bboxes, ann_ids = [], [], [], []
+
+    results_dir = Path(r"D:\MSc Works\temp_matching\assets\model_results")
+    results_dir.mkdir(parents=True, exist_ok=True)
+    out_csv = results_dir / "results.csv"
+
+    # Write CSV header
+    with open(out_csv, "w") as f:
+        f.write(
+            "image_name,label,bbox,model_iou,ann_id,model_time,model_gpu_memory,"
+            "model_memory,sift_iou,sift_time\n"
+        )
     pbar = tqdm(total=len(val_loader))
     for samples in val_loader:
         pbar.update(1)
@@ -326,93 +441,65 @@ if __name__ == "__main__":
             image, query, mask, cropped_region, lbl, img_name, bbox, ann_id = sample
             pbar.set_description(f"{img_name}")
 
+            # # if the image has already been processed, skip it
+            # filename = Path(img_name).stem
+            # if (results_dir / f"{filename}_{ann_id}_model_rle.txt").exists():
+            #     print(f"Skipping {img_name} as it has already been processed.")            #     continue
+
+            # Ensure img_name is a valid string
+            img_name = str(img_name).strip()
+
             images.append(image)
-            cropped_regions.append(cropped_region)
-            masks.append(mask)
-            lbls.append(lbl)
             queries.append(query)
+            masks.append(mask)
+            cropped_regions.append(cropped_region)
             image_names.append(img_name)
+            lbls.append(lbl)
             bboxes.append(bbox)
             ann_ids.append(ann_id)
 
             if len(images) >= batch_size:
-                model_pred = evaluator.batch_predict(images, queries)
+                # Process the batch and get CSV rows
+                csv_rows = process_batch(
+                    evaluator,
+                    images,
+                    queries,
+                    masks,
+                    cropped_regions,
+                    image_names,
+                    lbls,
+                    bboxes,
+                    ann_ids,
+                    results_dir,
+                )
 
-                for i, out in enumerate(model_pred.out):
-                    out = evaluator.post_process(out)
-                    mask = cv2.resize(
-                        masks[i],
-                        out.shape[:2],
-                    )
-                    bmask = mask > 0
-                    bout = out > 0
-                    intersection = np.logical_and(bout, bmask).sum()
-                    union = np.logical_or(bout, bmask).sum()
-                    iou = intersection / union if union > 0 else 0
-                    iou = round(iou, 3)
-                    out = out.astype(np.uint8) * 255
-                    # image_query_mask_out_iou = [
-                    #     cv2.resize(images[i], out.shape[:2]),
-                    #     cv2.resize(queries[i], out.shape[:2]),
-                    #     cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR),
-                    #     cv2.cvtColor(out * 255, cv2.COLOR_GRAY2BGR),
-                    #     iou,
-                    # ]
+                # Write CSV rows to file
+                with open(out_csv, "a") as f:
+                    f.writelines(csv_rows)
 
-                    fname = (
-                        results_dir
-                        / f"{Path(image_names[i]).stem}_{ann_ids[i]}_model.npy"
-                    )
-                    np.save(fname, out)
-                    t0 = time.perf_counter()
-                    try:
-                        sift_out = get_sift_match_mask(images[i], cropped_regions[i])
-                    except:
-                        sift_out = np.zeros_like(out)
+                # Clear batch data
+                images, queries, masks, cropped_regions = [], [], [], []
+                image_names, lbls, bboxes, ann_ids = [], [], [], []
 
-                    sift_out = cv2.resize(sift_out, out.shape) > 0
-                    smask = cv2.resize(masks[i], out.shape) > 0
+    # Process remaining samples
+    if images:
+        csv_rows = process_batch(
+            evaluator,
+            images,
+            queries,
+            masks,
+            cropped_regions,
+            image_names,
+            lbls,
+            bboxes,
+            ann_ids,
+            results_dir,
+        )
+        with open(out_csv, "a") as f:
+            f.writelines(csv_rows)
 
-                    t1 = time.perf_counter()
-                    sift_time = t1 - t0
-                    intersection = np.logical_and(sift_out, smask).sum()
-                    union = np.logical_or(sift_out, smask).sum()
-                    sift_iou = round(intersection / union, 3) if union > 0 else 0
-                    fname = (
-                        results_dir
-                        / f"{Path(image_names[i]).stem}_{ann_ids[i]}_sift.npy"
-                    )
-                    # cv2.imwrite(
-                    #     "res.png",
-                    #     np.hstack([cv2.resize(sift_out, out.shape), out]),
-                    # )
-                    np.save(fname, sift_out)
-                    with open(out_csv, "a") as f:
-                        f.write(
-                            f"{image_names[i]},{lbls[i]},{bboxes[i]},{iou},{ann_ids[i]},{model_pred.time/len(masks)},{model_pred.gpu_memory/len(masks)},{model_pred.memory/len(masks)},{sift_iou},{sift_time}\n"
-                        )
-
-                #     cv2.imwrite(
-                #         "res.png",
-                #         np.hstack(
-                #             [
-                #                 cv2.resize(images[i], out.shape[:2]),
-                #                 cv2.resize(queries[i], out.shape[:2]),
-                #                 cv2.resize(
-                #                     cv2.cvtColor(masks[i], cv2.COLOR_GRAY2BGR),
-                #                     out.shape[:2],
-                #                 ),
-                #                 cv2.cvtColor(out * 255, cv2.COLOR_GRAY2BGR),
-                #             ]
-                #         ),
-                #     )
-                #     print(i)
-                # images = []
-                cropped_regions = []
-                queries = []
-                masks = []
-                lbls = []
-                image_names = []
-                bboxes = []
-                ann_ids = []
     pbar.close()
+
+
+if __name__ == "__main__":
+    main()
