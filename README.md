@@ -12,6 +12,8 @@ The model is a modified version of the original [U-Net architecture](https://arx
 *A basic architecture of a model.*
 
 ## Training Procedure
+Crop a part of an image based on the bounding box annotation available in COCO dataset. Then put that cropped part in the center of a blank image. Now the model's input will be original image and that blank image. The target will be the mask where the cropped image originally was.
+
 * Prepare a `.venv` file that contains following:
 
 ```env
