@@ -6,7 +6,7 @@ from typing import Tuple, Optional
 import sys
 from tqdm import tqdm
 
-sys.path.append(r"D:\MSc Works\temp_matching")
+sys.path.append(r"..")
 
 # else cant load model
 from temp_matching.val_data_loader import CustomCocoDataset, DataConfig
@@ -424,7 +424,7 @@ def main():
     images, queries, masks, cropped_regions = [], [], [], []
     image_names, lbls, bboxes, ann_ids = [], [], [], []
 
-    results_dir = Path(r"D:\MSc Works\temp_matching\assets\model_results")
+    results_dir = Path(r"..\assets\model_results")
     results_dir.mkdir(parents=True, exist_ok=True)
     out_csv = results_dir / "results.csv"
 
