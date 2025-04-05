@@ -5,6 +5,9 @@ An experiment to do template matching based on neural networks.
     <img src="assets/desk_out.gif" alt="Desk Output">
 </div>
 
+## Model Architecture
+
+
 ## Training Procedure
 * Prepare a `.venv` file that contains following:
 
@@ -40,6 +43,7 @@ A [live_run.py](/live_run.py) should work out of the box. First compute the enco
 * Predictions at ![](assets/2024-09-24/](assets/2024-09-24/)
 ![](assets/2024-09-24/epoch_250.png)
 * The weight file can be downloaded from [Google Drive](https://drive.google.com/file/d/1G4hjwUqZ6OveJnp8xqICp5ITKJLSg4Al/view?usp=sharing)
+* Some experiments I did are available on [notebooks](notebooks) as well.
 
 ### Demo on Unseen Scenes
 * [Result 1](https://youtu.be/-ZUA1SLfXNU)
@@ -47,6 +51,8 @@ A [live_run.py](/live_run.py) should work out of the box. First compute the enco
 
 ## Benchmarking with SIFT
 Note that storing the mask was done to view masks later. I found RLE (Run Length Encoding to be the perfect for that task.)
+
+The scripts to extract the masks and storing in RLE is [temp_matching/benchmarking.py](temp_matching/benchmarking.py). And the plots are generated on the [notebooks/test_benchmark.ipynb](notebooks/test_benchmark.ipynb).
 
 ![](assets/sift_comparisons.png)
 
@@ -91,4 +97,9 @@ Out of 21627 only 232 cases.
 
 
 ## Conclusion
-The results did not show that template matching with the model and the training I had is not better than the classical SIFT feature extractor.
+The results did not show that template matching with the model and the training I had is not better than the classical SIFT feature extractor. What could be the reasons?
+
+1. Training process is really sensitive.  The input size, colorspace, rotation of template and the image, template size, minimizer function and so on.
+2. It is not trained with more variations of the images. For example, we want our model to be able to perform well in scale/rotation as well but it is not yet. However, we can use augmentation techniques during training for that.
+
+I have trained several template matching models in other projects and I have found them to better than SIFT only when I trained for weeks but still without much rotation/scale augmentation. In addition to that, I have also trained model with attention layers in different places of the architecture and still results were not great. This means it needs careful design of the architecture.
