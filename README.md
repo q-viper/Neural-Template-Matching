@@ -52,7 +52,7 @@ A [live_run.py](/live_run.py) should work out of the box. First compute the enco
 
 ### Demo on Unseen Scenes
 * [Result 1](https://youtu.be/-ZUA1SLfXNU)
-* [Result 2](https://youtu.be/0ydsS0NyAQA)
+* [Result 2](https://youtu.be/NK7BSGyIykY)
 
 ## Benchmarking with SIFT
 Note that storing the mask was done to view masks later. I found RLE (Run Length Encoding to be the perfect for that task.)

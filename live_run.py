@@ -8,8 +8,8 @@ from typing import Tuple
 # had to import this to load the model
 from temp_matching.model import CustomUnet, EncodingCombination
 
-# input_file: Path = Path("assets/pen.mp4")
-input_file: Path = Path("assets/desk.mp4")
+input_file: Path = Path("assets/pen.mp4")
+# input_file: Path = Path("assets/desk.mp4")
 out_size: Tuple[int, int] = (1280 // 2, 720 // 2)
 input_size: Tuple[int, int] = (512, 512)
 device: str = "cuda"
@@ -33,12 +33,12 @@ writer = cv2.VideoWriter(
     out_size,
 )
 matplotlib.use("Agg")  # Use the non-interactive Agg backend
-frame = cv2.imread("assets/desk.png")
-# frame = cv2.imread("assets/pen.png")
+# frame = cv2.imread("assets/desk.png")
+frame = cv2.imread("assets/pen.png")
 # frame = cv2.imread("assets/pen-nobg.png")
 
-query = frame[650:1000, 200:450]
-# query = frame[125:1050, 1045:1550]
+# query = frame[650:1000, 200:450]
+query = frame[125:1050, 1045:1550]
 # query = frame[39:370, 360:520]
 query = cv2.cvtColor(query, cv2.COLOR_BGR2RGB)
 evaluator = Evaluator(
