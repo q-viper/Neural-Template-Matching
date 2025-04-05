@@ -6,7 +6,9 @@ An experiment to do template matching based on neural networks.
 </div>
 
 ## Model Architecture
+The model is a modified version of the original [U-Net architecture](https://arxiv.org/pdf/1505.04597). Instead of single encoder, two encoders (one for the query image and another for the original image) will be used. In original architecture, there are skip connections from encoder to decoder side. But here, the outputs from such blocks are first multiplied (or can be added i.e. encoding multiplication) and passed to the decoder. The inputs to the model will be, query image (where template will be at the center of a blank image) and input image (where that template is being searched). Both are of same size.
 
+![](assets/model_architecture.png)
 
 ## Training Procedure
 * Prepare a `.venv` file that contains following:
@@ -102,4 +104,4 @@ The results did not show that template matching with the model and the training 
 1. Training process is really sensitive.  The input size, colorspace, rotation of template and the image, template size, minimizer function and so on.
 2. It is not trained with more variations of the images. For example, we want our model to be able to perform well in scale/rotation as well but it is not yet. However, we can use augmentation techniques during training for that.
 
-I have trained several template matching models in other projects and I have found them to better than SIFT only when I trained for weeks but still without much rotation/scale augmentation. In addition to that, I have also trained model with attention layers in different places of the architecture and still results were not great. This means it needs careful design of the architecture.
+I have trained several template matching models in other projects (very compact domain) and I have found them to better than SIFT only when I trained for weeks but still without much rotation/scale augmentation. In addition to that, I have also trained model with attention layers in different places of the architecture and still results were not great. This means it needs careful design of the architecture.
