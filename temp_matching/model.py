@@ -5,6 +5,7 @@ from enum import Enum
 from segmentation_models_pytorch import Unet
 from copy import deepcopy
 from typing import List
+from segmentation_models_pytorch.base.modules import SCSEModule
 
 
 class EncodingCombination(Enum):
@@ -18,11 +19,24 @@ class CustomUnet(Unet):
         self,
         unet_args: dict,
         encoding_combination: EncodingCombination = EncodingCombination.MULTIPLICATION,
+        use_encoder_attention: bool = False,
     ):
         super().__init__(**unet_args)
         self.image_encoder = self.encoder
         self.query_encoder = deepcopy(self.encoder)
         self.encoding_combination = encoding_combination
+        self.use_encoder_attention = use_encoder_attention
+
+        self.image_attentions = nn.ModuleList()
+        self.query_attentions = nn.ModuleList()
+
+        if self.use_encoder_attention:
+            # for each encoder block, add attention module
+            for i in range(len(self.image_encoder.blocks)):
+                in_channels = self.image_encoder.blocks[i][-1].out_channels
+                self.image_attentions.append(SCSEModule(in_channels))
+                self.query_attentions.append(SCSEModule(in_channels))
+
         if self.encoding_combination == EncodingCombination.CONCATENATION:
             device = next(self.encoder.parameters()).device
             features = self.encoder(torch.rand(1, 3, 256, 256).to(device))
@@ -52,6 +66,10 @@ class CustomUnet(Unet):
     ):
         combined_features = []
         for i, (imf, qrf) in enumerate(zip(image_features, query_features)):
+            if self.use_encoder_attention:
+                imf = self.image_attentions[i](imf)
+                qrf = self.query_attentions[i](qrf)
+
             if self.encoding_combination == EncodingCombination.ADDITION:
                 combined_features.append(imf + qrf)
             elif self.encoding_combination == EncodingCombination.MULTIPLICATION:

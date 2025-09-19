@@ -13,11 +13,19 @@ import warnings
 
 
 def normalization(x):
-    return x / 255
+    return A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))(image=x)[
+        "image"
+    ]
 
 
 def denormalization(x):
-    return x * 255
+    # inverse of albumentation std normalization
+    x = x.astype(np.float32)
+    x = x * np.array((0.229, 0.224, 0.225)) + np.array((0.485, 0.456, 0.406))
+    x = np.clip(x, 0, 1)
+    x = (x * 255).astype(np.uint8)
+
+    return x
 
 
 class DataConfig(BaseModel):
@@ -59,6 +67,14 @@ class CustomCocoDataset(Dataset):
                 A.GaussNoise(),
                 A.Emboss(),
                 A.MultiplicativeNoise(multiplier=(0.97, 1.03)),
+                A.Emboss(),
+                A.RandomBrightnessContrast(),
+                A.RandomGridShuffle(p=0.15),
+                A.RandomCropFromBorders(p=0.15),
+                A.Superpixels(p_replace=0.05, n_segments=100),
+                A.CoarseDropout(max_holes=8, max_height=16, max_width=16),
+                A.Perspective(p=0.2),
+                A.ChannelShuffle(p=0.2),
             ],
             p=0.5,
         ),
@@ -258,8 +274,9 @@ class CustomCocoDataset(Dataset):
             mask = np.zeros_like(mask)
 
         if self.image_augmentation:
-            augmented = self.image_augmentation(image=image)
+            augmented = self.image_augmentation(image=image, mask=mask)
             image = augmented["image"]
+            mask = augmented["mask"]
 
         image_query = np.concatenate((image, query)).reshape(2, *image.shape)
 

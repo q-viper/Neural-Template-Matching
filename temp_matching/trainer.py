@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 if __name__ == "__main__":
     print("Running the trainer")
-    load_dotenv(".env")
+    load_dotenv("E:/MSc Works/temp_matching/.env")
     TRAIN_DIR = os.environ.get("TRAIN_DIR")
     TRAIN_ANNOTATION_DIR = os.environ.get("TRAIN_ANNOTATION_DIR")
     VAL_DIR = os.environ.get("VAL_DIR")
@@ -36,6 +36,7 @@ if __name__ == "__main__":
         "classes": 1,  # Number of output classes
         "activation": "sigmoid",  # Activation function
         "in_channels": 3,  # Number of input channels
+        "decoder_attention_type": "scse",
     }
     print(f"Training on {ENCODER_NAME} encoder")
     if TRAIN_DIR is None:
@@ -86,7 +87,7 @@ if __name__ == "__main__":
         unet_args=UNET_ARGS,
         encoding_combination=EncodingCombination.MULTIPLICATION,
     )
-
+    train_dataset[0]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     print(f"Using Device: {device}")
