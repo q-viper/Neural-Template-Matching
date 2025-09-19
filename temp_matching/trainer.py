@@ -24,10 +24,10 @@ if __name__ == "__main__":
 
     BATCH_SIZE = 16
     INPUT_SIZE = (512, 512)
-    MAX_TRAIN_DATA = 100
+    MAX_TRAIN_DATA = 5000
     MAX_VALID_DATA = 50
     VERBOSE = True
-    EPOCHS = 300
+    EPOCHS = 1000
     LOG_IMAGES_EVERY = 10
     OUT_DIR = "./train_res"
     ENCODER_NAME = "resnet34"
