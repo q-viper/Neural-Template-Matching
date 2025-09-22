@@ -18,25 +18,26 @@ if __name__ == "__main__":
     TRAIN_ANNOTATION_DIR = os.environ.get("TRAIN_ANNOTATION_DIR")
     VAL_DIR = os.environ.get("VAL_DIR")
     VAL_ANNOTATION_DIR = os.environ.get("VAL_ANNOTATION_DIR")
-    OLD_MODEL_PATH = os.environ.get("OLD_MODEL_PATH")
-    OLD_OPTIMIZER_PATH = os.environ.get("OLD_OPTIMIZER_PATH")
+    OLD_MODEL_PATH = os.environ.get("OLD_MODEL_PATH", "model.pth")
+    OLD_OPTIMIZER_PATH = os.environ.get("OLD_OPTIMIZER_PATH","model.pth")
     READ_ALL_DATA = False
 
-    BATCH_SIZE = 16
+    BATCH_SIZE = 20
     INPUT_SIZE = (512, 512)
-    MAX_TRAIN_DATA = 5000
-    MAX_VALID_DATA = 50
+    MAX_TRAIN_DATA = 1000
+    MAX_VALID_DATA = 20
     VERBOSE = True
     EPOCHS = 1000
-    LOG_IMAGES_EVERY = 10
+    LOG_IMAGES_EVERY = 3
     OUT_DIR = "./train_res"
-    ENCODER_NAME = "resnet34"
+    ENCODER_NAME = "resnet50"
     UNET_ARGS = {
         "encoder_name": ENCODER_NAME,
         "classes": 1,  # Number of output classes
         "activation": "sigmoid",  # Activation function
         "in_channels": 3,  # Number of input channels
         "decoder_attention_type": "scse",
+        "encoder_weights": None,
     }
     print(f"Training on {ENCODER_NAME} encoder")
     if TRAIN_DIR is None:
@@ -126,7 +127,10 @@ if __name__ == "__main__":
     expt_name = f"{ENCODER_NAME}_{str(datetime.datetime.now().date())}"
     out_dir = out_dir / expt_name
 
-    print(f"Loding model from: {out_dir}")
+    if not out_dir.exists():
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"Loading model from: {out_dir}")
     if Path(OLD_MODEL_PATH).exists():
         model_state = torch.load(OLD_MODEL_PATH)
         model.load_state_dict(model_state)

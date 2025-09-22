@@ -19,7 +19,7 @@ class CustomUnet(Unet):
         self,
         unet_args: dict,
         encoding_combination: EncodingCombination = EncodingCombination.MULTIPLICATION,
-        use_encoder_attention: bool = False,
+        use_encoder_attention: bool = True,
     ):
         super().__init__(**unet_args)
         self.image_encoder = self.encoder
@@ -30,12 +30,15 @@ class CustomUnet(Unet):
         self.image_attentions = nn.ModuleList()
         self.query_attentions = nn.ModuleList()
 
+
         if self.use_encoder_attention:
-            # for each encoder block, add attention module
-            for i in range(len(self.image_encoder.blocks)):
-                in_channels = self.image_encoder.blocks[i][-1].out_channels
-                self.image_attentions.append(SCSEModule(in_channels))
-                self.query_attentions.append(SCSEModule(in_channels))
+            device = next(self.encoder.parameters()).device
+            features = self.encoder(torch.rand(4, 3, 256, 256).to(device))
+            
+            for feature in features[1:]:
+                in_channel = feature.shape[1]
+                self.image_attentions.append(SCSEModule(in_channel))
+                self.query_attentions.append(SCSEModule(in_channel))
 
         if self.encoding_combination == EncodingCombination.CONCATENATION:
             device = next(self.encoder.parameters()).device
@@ -66,9 +69,9 @@ class CustomUnet(Unet):
     ):
         combined_features = []
         for i, (imf, qrf) in enumerate(zip(image_features, query_features)):
-            if self.use_encoder_attention:
-                imf = self.image_attentions[i](imf)
-                qrf = self.query_attentions[i](qrf)
+            if self.use_encoder_attention and i > 0:
+                imf = self.image_attentions[i - 1](imf)
+                qrf = self.query_attentions[i - 1](qrf)
 
             if self.encoding_combination == EncodingCombination.ADDITION:
                 combined_features.append(imf + qrf)
@@ -89,7 +92,7 @@ class CustomUnet(Unet):
         return combined_features
 
     def get_masks(self, combined_features: List[torch.Tensor]):
-        decoder_output = self.decoder(*combined_features)
+        decoder_output = self.decoder(combined_features)
         masks = self.segmentation_head(decoder_output)
         return masks
 

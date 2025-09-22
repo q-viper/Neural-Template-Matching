@@ -37,7 +37,7 @@ class DataConfig(BaseModel):
     min_query_hw: int = 32
     # augmentation
     aug_rate: float = 0.5
-    rotate_anlge: Tuple[int, int] = -10, 10
+    rotate_anlge: Tuple[int, int] = -1, 1
     flip_rate: float = 0.5
     # after rotation, original region will be black, fill it by what was there before?
     fill_blank_by_original: bool = True
@@ -62,6 +62,9 @@ class CustomCocoDataset(Dataset):
         data_type: DataType = DataType.TRAIN,
         image_augmentation: Optional[A.Compose] = A.Compose(
             [
+                A.HorizontalFlip(),
+                A.VerticalFlip(),
+                A.Rotate(),
                 A.Blur(),
                 A.ColorJitter(),
                 A.GaussNoise(),
@@ -69,10 +72,7 @@ class CustomCocoDataset(Dataset):
                 A.MultiplicativeNoise(multiplier=(0.97, 1.03)),
                 A.Emboss(),
                 A.RandomBrightnessContrast(),
-                A.RandomGridShuffle(p=0.15),
                 A.RandomCropFromBorders(p=0.15),
-                A.Superpixels(p_replace=0.05, n_segments=100),
-                A.CoarseDropout(max_holes=8, max_height=16, max_width=16),
                 A.Perspective(p=0.2),
                 A.ChannelShuffle(p=0.2),
             ],
@@ -94,6 +94,7 @@ class CustomCocoDataset(Dataset):
         self.normalization = normalization
         self.denormalization = denormalization
         self.image_augmentation = image_augmentation
+        self.image_augmentation.transforms.append(A.Resize(*self.image_size))
         # Load the annotation file and create the bounding box dictionary
         self.bbox_dict = self._load_annotations(config.annotation_path)
         bbox_keys = list(self.bbox_dict.keys())
