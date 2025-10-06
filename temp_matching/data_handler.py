@@ -279,10 +279,11 @@ class CustomCocoDataset(Dataset):
             image = augmented["image"]
             mask = augmented["mask"]
 
-        image_query = np.concatenate((image, query)).reshape(2, *image.shape)
+        
 
         image = self.normalization(image)
         query = self.normalization(query)
+        image_query = np.concatenate((image, query)).reshape(2, *image.shape)
         mask = mask / 255
         image_query = self.normalization(image_query)
 

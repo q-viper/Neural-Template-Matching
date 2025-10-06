@@ -31,7 +31,7 @@ Had to do this to make it compatible with HPC. Slurm job is in [scripts](/script
 
 
 ## Inference
-A [live_run.py](/live_run.py) should work out of the box. First compute the encodings of query and search based on that. Please download the weight files from [Google Drive](https://drive.google.com/file/d/1G4hjwUqZ6OveJnp8xqICp5ITKJLSg4Al/view?usp=sharing).
+A [live_run.py](/live_run.py) should work out of the box. First compute the encodings of query and search based on that. Please download the weight files from [releases](https://github.com/q-viper/Neural-Template-Matching/releases/tag/v0.0.1).
 
 
 ## Results

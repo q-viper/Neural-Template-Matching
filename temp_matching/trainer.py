@@ -22,7 +22,7 @@ if __name__ == "__main__":
     OLD_OPTIMIZER_PATH = os.environ.get("OLD_OPTIMIZER_PATH","model.pth")
     READ_ALL_DATA = False
 
-    BATCH_SIZE = 20
+    BATCH_SIZE = 16
     INPUT_SIZE = (512, 512)
     MAX_TRAIN_DATA = 1000
     MAX_VALID_DATA = 20
