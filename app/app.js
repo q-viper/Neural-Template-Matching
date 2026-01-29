@@ -188,13 +188,16 @@ DOM.thresholdSlider.addEventListener('input', (e) => {
 async function loadModel(forceReload = false) {
     // Try multiple paths for the model file to work with GitHub Pages
     const modelPaths = [
-        // First try GitHub release URL (your current setup)
+        // GitHub raw content URL (CORS-friendly)
+        'https://raw.githubusercontent.com/q-viper/Neural-Template-Matching/main/model.onnx',
+        // GitHub releases alternative (if user uploads there)
         'https://github.com/q-viper/Neural-Template-Matching/releases/download/v0.0.1/model.onnx',
-        // Fallback to local paths for development
+        // Local paths for development
+        '../model.onnx',
         './model.onnx',
         'model.onnx',
-        // Try from current location
-        window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'model.onnx'
+        // Try from root directory
+        window.location.origin + '/Neural-Template-Matching/model.onnx'
     ];
     
     try {
