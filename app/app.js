@@ -188,10 +188,13 @@ DOM.thresholdSlider.addEventListener('input', (e) => {
 async function loadModel(forceReload = false) {
     // Try multiple paths for the model file to work with GitHub Pages
     const modelPaths = [
+        // First try GitHub release URL (your current setup)
+        'https://github.com/q-viper/Neural-Template-Matching/releases/download/v0.0.1/model.onnx',
+        // Fallback to local paths for development
         './model.onnx',
         'model.onnx',
-        '/model.onnx',
-        window.location.href + 'model.onnx'
+        // Try from current location
+        window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'model.onnx'
     ];
     
     try {
@@ -227,9 +230,13 @@ async function loadModel(forceReload = false) {
 
         // Try loading the model from different paths
         let loadError = null;
-        for (const modelPath of modelPaths) {
+        for (let i = 0; i < modelPaths.length; i++) {
+            const modelPath = modelPaths[i];
             try {
                 console.log(`Trying to load model from: ${modelPath}`);
+                showStatus(`Loading model... (attempt ${i + 1}/${modelPaths.length})`, 'loading');
+                DOM.loadingText.textContent = `📦 Loading model (${i + 1}/${modelPaths.length})...`;
+                
                 session = await ort.InferenceSession.create(modelPath, {
                     executionProviders: ['wasm'],
                     graphOptimizationLevel: 'basic',
@@ -239,28 +246,41 @@ async function loadModel(forceReload = false) {
                     interOpNumThreads: 1,
                     intraOpNumThreads: 1,
                 });
-                console.log(`Successfully loaded model from: ${modelPath}`);
+                console.log(`✅ Successfully loaded model from: ${modelPath}`);
                 break; // Success, exit loop
             } catch (err) {
-                console.warn(`Failed to load model from ${modelPath}:`, err.message);
+                console.warn(`❌ Failed to load model from ${modelPath}:`, err.message);
                 loadError = err;
+                
+                // If this is the last attempt, don't continue
+                if (i === modelPaths.length - 1) {
+                    break;
+                }
+                
+                // Wait a bit before trying next path
+                await new Promise(resolve => setTimeout(resolve, 500));
                 continue; // Try next path
             }
         }
 
         if (!session) {
-            throw new Error(`Failed to load model from any path. Last error: ${loadError?.message || 'Unknown error'}`);
+            throw new Error(`Failed to load model from any location. Make sure:
+1. Your model.onnx file is uploaded to GitHub releases
+2. The release tag 'v0.0.1' exists
+3. Or model.onnx is in the same folder as index.html
+Last error: ${loadError?.message || 'Unknown error'}`);
         }
 
         modelLoaded = true;
-        DOM.infoModel.textContent = 'model.onnx';
-        showStatus('✅ Model loaded successfully - Ready for GitHub Pages!', 'success');
-        hideLoadingOverlay(); // Hide loading overlay when called directly
+        DOM.infoModel.textContent = 'model.onnx (loaded)';
+        showStatus('✅ Model loaded successfully - Ready to run inference!', 'success');
+        hideLoadingOverlay();
         return true;
     } catch (err) {
-        showStatus(`Model load error: ${err.message}. For GitHub Pages, ensure model.onnx is in the repository root.`, 'error');
-        console.error('ONNX Model Error:', err);
-        hideLoadingOverlay(); // Hide loading overlay on error
+        const errorMessage = `Model loading failed: ${err.message}`;
+        showStatus(errorMessage, 'error');
+        console.error('❌ ONNX Model Error:', err);
+        hideLoadingOverlay();
         return false;
     }
 }
@@ -665,4 +685,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize preview containers with placeholder text
     DOM.mainImagePreview.innerHTML = '<div class="preview-placeholder">Main image preview</div>';
     DOM.templateImagePreview.innerHTML = '<div class="preview-placeholder">Template preview</div>';
+    
+    // Preload the model for faster inference
+    setTimeout(() => {
+        if (!modelLoaded) {
+            console.log('🚀 Preloading model for faster inference...');
+            showStatus('🚀 Preloading model for faster inference...', 'loading');
+            loadModel().then(success => {
+                if (success) {
+                    console.log('✅ Model preloaded successfully!');
+                    showStatus('✅ Model ready - Upload images to begin!', 'success');
+                } else {
+                    console.log('❌ Model preload failed - will try again when needed');
+                    showStatus('⚠️ Model preload failed - will retry when you run inference', 'error');
+                }
+            }).catch(err => {
+                console.error('Model preload error:', err);
+                showStatus('⚠️ Model preload failed - will retry when you run inference', 'error');
+            });
+        }
+    }, 1000); // Wait 1 second after page load
 });
